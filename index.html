@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab Inventory & Borrowing System</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1ee;--card:#fff;--ink:#16262b;--mut:#5d7076;--line:#d8dfdc;--pri:#0e6b63;--pri2:#0a504a;--warn:#b45309;--warnbg:#fef3c7;--ok:#166534;--okbg:#dcfce7;--bad:#b91c1c;--badbg:#fee2e2;--side:#12302f}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1a1b;--card:#172426;--ink:#e6efed;--mut:#93a8a6;--line:#2a3d3f;--pri:#2bb3a6;--pri2:#43c9bc;--warn:#fbbf24;--warnbg:#3b2f0e;--ok:#86efac;--okbg:#12361f;--bad:#fca5a5;--badbg:#3f1717;--side:#0a1415}}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+.login{min-height:100vh;display:grid;place-items:center;padding:20px}
+.lbox{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:32px;width:100%;max-width:380px}
+.lbox h1{font-size:21px;margin:0 0 4px}.lbox p{margin:0 0 20px;color:var(--mut)}
+.demo{margin-top:18px;padding:10px 12px;background:var(--bg);border-radius:6px;font-size:13px;color:var(--mut)}
+.demo b{font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--ink)}
+label{display:block;font-size:13px;font-weight:500;margin:12px 0 4px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--pri);outline-offset:1px}
+.btn{background:var(--pri);color:#fff;border:0;padding:9px 16px;border-radius:6px;cursor:pointer;font-weight:500}
+[data-theme] .btn,.btn:hover{background:var(--pri2)}
+.btn.full{width:100%;margin-top:18px}
+.btn.ghost{background:transparent;color:var(--pri);border:1px solid var(--line)}
+.btn.ghost:hover{background:var(--bg)}
+.btn.sm{padding:4px 10px;font-size:13px}.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--line)}
+.btn.danger:hover{background:var(--badbg)}
+.layout{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:var(--side);color:#dbe8e6;padding:20px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+aside .brand{font-weight:600;font-size:16px;padding:0 8px 14px;color:#fff}
+aside .brand small{display:block;font-weight:400;font-size:12px;color:#8fb0ac}
+aside a{color:inherit;text-decoration:none;padding:9px 10px;border-radius:6px}
+aside a:hover{background:rgba(255,255,255,.07)}aside a.on{background:#fff;color:#12302f;font-weight:500}
+aside .me{margin-top:auto;padding:12px 8px 0;border-top:1px solid rgba(255,255,255,.12);font-size:13px}
+aside .me button{margin-top:8px;width:100%;background:transparent;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;padding:6px;cursor:pointer}
+main{padding:28px;max-width:1100px;width:100%}
+h2{margin:0 0 18px;font-size:22px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:24px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;border-left:4px solid var(--pri)}
+.stat:nth-child(3){border-left-color:var(--warn)}
+.stat span{color:var(--mut);font-size:13px}.stat strong{display:block;font-size:30px;font-weight:600;font-family:'IBM Plex Mono',monospace}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px;margin-bottom:20px}
+.panel h3{margin:0 0 12px;font-size:16px}
+.bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}.bar input{max-width:320px}.bar .sp{flex:1}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:500;color:var(--mut);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line)}tr:last-child td{border-bottom:0}
+.code{font-family:'IBM Plex Mono',monospace;font-size:13px}
+.tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:500}
+.tag.ok{background:var(--okbg);color:var(--ok)}.tag.warn{background:var(--warnbg);color:var(--warn)}.tag.bad{background:var(--badbg);color:var(--bad)}
+.act{display:flex;gap:6px}.empty{color:var(--mut);padding:18px 0;text-align:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+dialog{border:1px solid var(--line);border-radius:10px;padding:24px;width:min(440px,92vw);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.45)}dialog h3{margin:0 0 4px}
+.dact{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--side);color:#fff;padding:10px 16px;border-radius:6px;z-index:9}
+@media(max-width:780px){.layout{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center}aside .brand{width:100%;padding-bottom:6px}aside .me{margin:0;border:0;padding:0;display:flex;gap:8px;align-items:center}aside .me button{margin:0;width:auto;padding:6px 10px}main{padding:16px}.grid2{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ===== Data layer (localStorage). Untuk produksi: ganti load()/save() dengan Supabase/Firebase. =====
+const K='lims.v1', SK='lims.session';
+const today=()=>new Date().toISOString().slice(0,10);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function seed(){
+  const it=[['BR001','Laptop Lenovo','Komputer',5],['BR002','Mouse Logitech','Aksesori',10],['BR003','Keyboard Mechanical','Aksesori',8],['BR004','Proyektor Epson','Presentasi',3],['BR005','Monitor LG','Display',6],
+  ['BR006','Laptop ASUS','Komputer',4],['BR007','Laptop HP','Komputer',4],['BR008','Monitor Dell','Display',5],['BR009','Monitor Samsung','Display',4],['BR010','Keyboard Logitech','Aksesori',9],
+  ['BR011','Mouse Wireless','Aksesori',12],['BR012','Proyektor BenQ','Presentasi',2],['BR013','Router TP-Link','Jaringan',4],['BR014','Switch Cisco 24 Port','Jaringan',3],['BR015','Access Point Ubiquiti','Jaringan',3],
+  ['BR016','Kabel LAN 10m','Jaringan',20],['BR017','Kabel HDMI','Kabel',15],['BR018','Webcam Logitech C920','Aksesori',6],['BR019','Headset','Aksesori',8],['BR020','Layar Proyektor','Presentasi',2],
+  ['BR021','Hub USB','Aksesori',10],['BR022','Crimping Tool','Peralatan',4],['BR023','LAN Tester','Peralatan',3],['BR024','Stabilizer','Kelistrikan',5],['BR025','Stop Kontak Roll','Kelistrikan',10]];
+  return {seq:1,users:[{u:'admin',p:'admin123',n:'Administrator',r:'ADMIN',a:1},{u:'staff',p:'staff123',n:'Staff Laboratorium',r:'STAFF',a:1}],
+    items:it.map(([c,n,k,t])=>({c,n,k,t})),tx:[]};
+}
+function load(){try{const d=JSON.parse(localStorage.getItem(K));if(d&&d.items)return d}catch(e){}const d=seed();localStorage.setItem(K,JSON.stringify(d));return d}
+let db=load();
+const save=()=>localStorage.setItem(K,JSON.stringify(db));
+const getMe=()=>{const u=localStorage.getItem(SK);return db.users.find(x=>x.u===u&&x.a)||null};
+let me=getMe();
+const borrowed=c=>db.tx.filter(t=>t.c===c&&t.s==='DIPINJAM').reduce((a,t)=>a+t.q,0);
+const avail=i=>i.t-borrowed(i.c);
+const item=c=>db.items.find(i=>i.c===c);
+const isAdmin=()=>me&&me.r==='ADMIN';
+const toast=m=>{const e=document.createElement('div');e.className='toast';e.textContent=m;document.body.append(e);setTimeout(()=>e.remove(),2400)};
+
+// ===== Login =====
+function viewLogin(){
+  root.innerHTML=`<div class="login"><form class="lbox" id="lf"><h1>Lab Inventory & Borrowing</h1><p>Masuk untuk mengelola inventaris laboratorium.</p>
+  <label for="u">Username</label><input id="u" autocomplete="username" required>
+  <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
+  <div class="err" id="le" role="alert"></div><button class="btn full">Masuk</button>
+  <div class="demo">Akun demo<br>Admin: <b>admin</b> / <b>admin123</b><br>Staff: <b>staff</b> / <b>staff123</b></div></form></div>`;
+  lf.onsubmit=e=>{e.preventDefault();db=load();const x=db.users.find(v=>v.u===u.value.trim()&&v.p===p.value);
+    if(!x){le.textContent='Username atau password salah.';return}
+    if(!x.a){le.textContent='Akun dinonaktifkan. Hubungi Admin.';return}
+    localStorage.setItem(SK,x.u);me=x;location.hash='#dashboard';render()};
+}
+function logout(){localStorage.removeItem(SK);me=null;location.hash='';render()}
+
+// ===== Shell =====
+const NAV=[['dashboard','Dashboard',1,1],['items','Daftar Barang',1,1],['borrow','Peminjaman',1,1],['return','Pengembalian',1,1],['history','Riwayat',1,1],['users','Pengguna',1,0]];
+function render(){
+  if(!me){viewLogin();return}
+  let r=(location.hash||'#dashboard').slice(1);
+  const nav=NAV.filter(n=>isAdmin()?n[2]:n[3]);
+  if(!nav.find(n=>n[0]===r))r='dashboard';
+  root.innerHTML=`<div class="layout"><aside><div class="brand">Lab Inventory<small>Borrowing Management</small></div>
+  ${nav.map(n=>`<a href="#${n[0]}" class="${n[0]===r?'on':''}">${n[1]}</a>`).join('')}
+  <div class="me"><div>${esc(me.n)}<br><span class="tag ${isAdmin()?'ok':'warn'}">${me.r}</span></div><button onclick="logout()">Keluar</button></div></aside><main id="v"></main></div>`;
+  ({dashboard:vDash,items:vItems,borrow:vBorrow,return:vReturn,history:vHist,users:vUsers})[r]();
+}
+window.onhashchange=()=>{db=load();render()};
+
+const tagS=s=>s==='DIPINJAM'?'<span class="tag warn">Dipinjam</span>':'<span class="tag ok">Selesai</span>';
+const txRows=(list,withBy=true)=>list.length?`<div class="tw"><table><thead><tr><th>Tanggal</th><th>Peminjam</th><th>Barang</th><th>Jml</th><th>Status</th><th>Dikembalikan</th>${withBy?'<th>Dicatat oleh</th>':''}</tr></thead><tbody>
+${list.map(t=>`<tr><td>${esc(t.d)}</td><td>${esc(t.b)}</td><td>${esc(item(t.c)?.n||t.c)}</td><td>${t.q}</td><td>${tagS(t.s)}</td><td>${esc(t.rd||'-')}</td>${withBy?`<td>${esc(t.by)}</td>`:''}</tr>`).join('')}</tbody></table></div>`:'<div class="empty">Belum ada transaksi.</div>';
+const myTx=()=>isAdmin()?db.tx:db.tx.filter(t=>t.by===me.u);
+
+// ===== Dashboard =====
+function vDash(){
+  const total=db.items.reduce((a,i)=>a+i.t,0),out=db.tx.filter(t=>t.s==='DIPINJAM').reduce((a,t)=>a+t.q,0);
+  v.innerHTML=`<h2>Dashboard${isAdmin()?' Admin':' Staff'}</h2><div class="stats">
+  <div class="stat"><span>Total barang (unit)</span><strong>${total}</strong><span>${db.items.length} jenis barang</span></div>
+  <div class="stat"><span>Barang tersedia</span><strong>${total-out}</strong></div>
+  <div class="stat"><span>Barang dipinjam</span><strong>${out}</strong></div>
+  <div class="stat"><span>Total transaksi</span><strong>${db.tx.length}</strong></div></div>
+  <div class="panel"><h3>Aktivitas terbaru</h3>${txRows([...db.tx].reverse().slice(0,6))}</div>`;
+}
+
+// ===== Barang =====
+let q='';
+function itemTable(){
+  const l=db.items.filter(i=>(i.c+i.n+i.k).toLowerCase().includes(q.toLowerCase()));
+  return l.length?`<div class="tw"><table><thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Stok total</th><th>Tersedia</th><th>Status</th>${isAdmin()?'<th></th>':''}</tr></thead><tbody>
+  ${l.map(i=>{const a=avail(i);return`<tr><td class="code">${esc(i.c)}</td><td>${esc(i.n)}</td><td>${esc(i.k)}</td><td>${i.t}</td><td>${a}</td><td>${a>0?'<span class="tag ok">Tersedia</span>':'<span class="tag bad">Habis</span>'}</td>
+  ${isAdmin()?`<td><div class="act"><button class="btn ghost sm" onclick="itemForm('${i.c}')">Edit</button><button class="btn danger sm" onclick="delItem('${i.c}')">Hapus</button></div></td>`:''}</tr>`}).join('')}</tbody></table></div>`:'<div class="empty">Barang tidak ditemukan.</div>';
+}
+function vItems(){
+  v.innerHTML=`<h2>Daftar Barang</h2><div class="panel"><div class="bar"><input id="sq" placeholder="Cari kode, nama, atau kategori" value="${esc(q)}" aria-label="Cari barang"><span class="sp"></span>${isAdmin()?'<button class="btn" onclick="itemForm()">Tambah barang</button>':''}</div><div id="it">${itemTable()}</div></div>`;
+  sq.oninput=()=>{q=sq.value;it.innerHTML=itemTable()};
+}
+function modal(title,body,onOk){
+  const d=document.createElement('dialog');
+  d.innerHTML=`<form><h3>${title}</h3>${body}<div class="err" role="alert"></div><div class="dact"><button type="button" class="btn ghost" value="x">Batal</button><button class="btn">Simpan</button></div></form>`;
+  document.body.append(d);d.showModal();
+  const f=d.querySelector('form'),er=d.querySelector('.err');
+  d.querySelector('[value=x]').onclick=()=>d.close();d.onclose=()=>d.remove();
+  f.onsubmit=e=>{e.preventDefault();const r=onOk(Object.fromEntries(new FormData(f)));if(r)er.textContent=r;else d.close()};
+}
+function itemForm(code){
+  const i=code?item(code):{c:'',n:'',k:'',t:1},ed=!!code;
+  modal(ed?'Edit barang':'Tambah barang',`<label>Kode</label><input name="c" value="${esc(i.c)}" ${ed?'readonly':''} required>
+  <label>Nama barang</label><input name="n" value="${esc(i.n)}" required><label>Kategori</label><input name="k" value="${esc(i.k)}" required>
+  <label>Stok total</label><input name="t" type="number" min="0" value="${i.t}" required>`,f=>{
+    const t=parseInt(f.t);if(isNaN(t)||t<0)return'Stok harus angka 0 atau lebih.';
+    if(ed){if(t<borrowed(code))return`Stok tidak boleh kurang dari jumlah yang sedang dipinjam (${borrowed(code)}).`;Object.assign(item(code),{n:f.n.trim(),k:f.k.trim(),t})}
+    else{const c=f.c.trim().toUpperCase();if(item(c))return'Kode barang sudah dipakai.';db.items.push({c,n:f.n.trim(),k:f.k.trim(),t})}
+    save();toast('Barang disimpan');vItems()});
+}
+function delItem(c){
+  if(borrowed(c)>0)return alert('Barang masih dipinjam, tidak bisa dihapus.');
+  if(confirm(`Hapus ${item(c).n}?`)){db.items=db.items.filter(i=>i.c!==c);save();toast('Barang dihapus');vItems()}
+}
+
+// ===== Peminjaman =====
+function vBorrow(){
+  const opts=db.items.filter(i=>avail(i)>0);
+  v.innerHTML=`<h2>Peminjaman Barang</h2><div class="panel"><h3>Catat peminjaman</h3><form id="bf"><div class="grid2">
+  <div><label>Nama peminjam</label><input name="b" required></div>
+  <div><label>Tanggal peminjaman</label><input name="d" type="date" value="${today()}" required></div>
+  <div><label>Barang</label><select name="c" required>${opts.map(i=>`<option value="${esc(i.c)}">${esc(i.c)} - ${esc(i.n)} (tersedia ${avail(i)})</option>`).join('')}</select></div>
+  <div><label>Jumlah</label><input name="q" type="number" min="1" value="1" required></div></div>
+  <div class="err" id="be" role="alert"></div><button class="btn">Simpan transaksi</button></form></div>
+  <div class="panel"><h3>Transaksi terakhir</h3>${txRows([...myTx()].reverse().slice(0,8))}</div>`;
+  bf.onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(bf)),it=item(f.c),n=parseInt(f.q);
+    if(!it)return be.textContent='Pilih barang.';if(n<1||n>avail(it))return be.textContent=`Jumlah harus 1 sampai ${avail(it)}.`;
+    db.tx.push({id:db.seq++,b:f.b.trim(),c:f.c,q:n,d:f.d,s:'DIPINJAM',rd:null,by:me.u});save();toast('Peminjaman tersimpan');vBorrow()};
+}
+
+// ===== Pengembalian =====
+function vReturn(){
+  const l=db.tx.filter(t=>t.s==='DIPINJAM');
+  v.innerHTML=`<h2>Pengembalian Barang</h2><div class="panel"><h3>Barang yang sedang dipinjam</h3>${l.length?`<div class="tw"><table><thead><tr><th>Tanggal</th><th>Peminjam</th><th>Barang</th><th>Jml</th><th></th></tr></thead><tbody>
+  ${l.map(t=>`<tr><td>${esc(t.d)}</td><td>${esc(t.b)}</td><td>${esc(item(t.c)?.n||t.c)}</td><td>${t.q}</td><td><button class="btn sm" onclick="doReturn(${t.id})">Proses pengembalian</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Tidak ada barang yang sedang dipinjam.</div>'}</div>`;
+}
+function doReturn(id){const t=db.tx.find(x=>x.id===id);if(!t||t.s!=='DIPINJAM')return;t.s='SELESAI';t.rd=today();save();toast('Barang dikembalikan, stok diperbarui');vReturn()}
+
+// ===== Riwayat =====
+function vHist(){
+  v.innerHTML=`<h2>Riwayat Peminjaman & Pengembalian</h2><div class="panel">${isAdmin()?'':'<p style="color:var(--mut);margin-top:0">Menampilkan transaksi yang Anda catat.</p>'}${txRows([...myTx()].reverse())}</div>`;
+}
+
+// ===== Pengguna (Admin) =====
+function vUsers(){
+  v.innerHTML=`<h2>Manajemen Pengguna</h2><div class="panel"><div class="bar"><span class="sp"></span><button class="btn" onclick="userForm()">Tambah Staff</button></div><div class="tw"><table><thead><tr><th>Username</th><th>Nama</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>
+  ${db.users.map(x=>`<tr><td class="code">${esc(x.u)}</td><td>${esc(x.n)}</td><td>${x.r}</td><td>${x.a?'<span class="tag ok">Aktif</span>':'<span class="tag bad">Nonaktif</span>'}</td>
+  <td><div class="act"><button class="btn ghost sm" onclick="userForm('${esc(x.u)}')">Edit</button>${x.r==='STAFF'?`<button class="btn ghost sm" onclick="toggleUser('${esc(x.u)}')">${x.a?'Nonaktifkan':'Aktifkan'}</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></div>`;
+}
+function toggleUser(u){const x=db.users.find(v=>v.u===u);x.a=x.a?0:1;save();toast(x.a?'Akun diaktifkan':'Akun dinonaktifkan');vUsers()}
+function userForm(u){
+  const x=u?db.users.find(v=>v.u===u):{u:'',n:'',a:1},ed=!!u;
+  modal(ed?'Edit pengguna':'Tambah akun Staff',`<label>Username</label><input name="u" value="${esc(x.u)}" ${ed?'readonly':''} required pattern="[A-Za-z0-9_.]+" title="Huruf, angka, titik, underscore">
+  <label>Nama lengkap</label><input name="n" value="${esc(x.n)}" required>
+  <label>Password ${ed?'(kosongkan jika tidak diubah)':''}</label><input name="p" type="password" minlength="6" ${ed?'':'required'}>`,f=>{
+    if(ed){x.n=f.n.trim();if(f.p)x.p=f.p}
+    else{const n=f.u.trim().toLowerCase();if(db.users.some(v=>v.u===n))return'Username sudah dipakai.';db.users.push({u:n,p:f.p,n:f.n.trim(),r:'STAFF',a:1})}
+    save();toast('Pengguna disimpan');vUsers()});
+}
+render();
+</script>
+</body>
+</html>
