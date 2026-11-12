@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lab Inventory & Borrowing System</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<!-- Library Supabase dari CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#eef1ee;--card:#fff;--ink:#16262b;--mut:#5d7076;--line:#d8dfdc;--pri:#0e6b63;--pri2:#0a504a;--warn:#b45309;--warnbg:#fef3c7;--ok:#166534;--okbg:#dcfce7;--bad:#b91c1c;--badbg:#fee2e2;--side:#12302f}
 @media (prefers-color-scheme:dark){:root{--bg:#0f1a1b;--card:#172426;--ink:#e6efed;--mut:#93a8a6;--line:#2a3d3f;--pri:#2bb3a6;--pri2:#43c9bc;--warn:#fbbf24;--warnbg:#3b2f0e;--ok:#86efac;--okbg:#12361f;--bad:#fca5a5;--badbg:#3f1717;--side:#0a1415}}
@@ -64,29 +66,53 @@ dialog::backdrop{background:rgba(0,0,0,.45)}dialog h3{margin:0 0 4px}
 <body>
 <div id="root"></div>
 <script>
-// ===== Data layer (localStorage). Untuk produksi: ganti load()/save() dengan Supabase/Firebase. =====
-const K='lims.v1', SK='lims.session';
-const today=()=>new Date().toISOString().slice(0,10);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function seed(){
-  const it=[['BR001','Laptop Lenovo','Komputer',5],['BR002','Mouse Logitech','Aksesori',10],['BR003','Keyboard Mechanical','Aksesori',8],['BR004','Proyektor Epson','Presentasi',3],['BR005','Monitor LG','Display',6],
-  ['BR006','Laptop ASUS','Komputer',4],['BR007','Laptop HP','Komputer',4],['BR008','Monitor Dell','Display',5],['BR009','Monitor Samsung','Display',4],['BR010','Keyboard Logitech','Aksesori',9],
-  ['BR011','Mouse Wireless','Aksesori',12],['BR012','Proyektor BenQ','Presentasi',2],['BR013','Router TP-Link','Jaringan',4],['BR014','Switch Cisco 24 Port','Jaringan',3],['BR015','Access Point Ubiquiti','Jaringan',3],
-  ['BR016','Kabel LAN 10m','Jaringan',20],['BR017','Kabel HDMI','Kabel',15],['BR018','Webcam Logitech C920','Aksesori',6],['BR019','Headset','Aksesori',8],['BR020','Layar Proyektor','Presentasi',2],
-  ['BR021','Hub USB','Aksesori',10],['BR022','Crimping Tool','Peralatan',4],['BR023','LAN Tester','Peralatan',3],['BR024','Stabilizer','Kelistrikan',5],['BR025','Stop Kontak Roll','Kelistrikan',10]];
-  return {seq:1,users:[{u:'admin',p:'admin123',n:'Administrator',r:'ADMIN',a:1},{u:'staff',p:'staff123',n:'Staff Laboratorium',r:'STAFF',a:1}],
-    items:it.map(([c,n,k,t])=>({c,n,k,t})),tx:[]};
+// ===== Data layer (Supabase Cloud) =====
+const SUPABASE_URL = 'https://ptebbjfmbuxkrfqoibdp.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_vblYOQWiIuwfjybRrH-MvQ_S9Nq7QLw';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const SK = 'lims.session';
+const today = () => new Date().toISOString().slice(0,10);
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let db = { users: [], items: [], tx: [] };
+
+// Ambil data langsung dari Supabase
+async function load(){
+  try {
+    const [{ data: u }, { data: i }, { data: t }] = await Promise.all([
+      _supabase.from('users').select('*'),
+      _supabase.from('items').select('*'),
+      _supabase.from('transactions').select('*')
+    ]);
+    
+    // Jika tabel users kosong, masukkan akun default
+    if (!u || u.length === 0) {
+      await _supabase.from('users').insert([
+        { u: 'admin', p: 'admin123', n: 'Administrator', r: 'ADMIN', a: 1 },
+        { u: 'staff', p: 'staff123', n: 'Staff Laboratorium', r: 'STAFF', a: 1 }
+      ]);
+      db.users = [{ u: 'admin', p: 'admin123', n: 'Administrator', r: 'ADMIN', a: 1 }, { u: 'staff', p: 'staff123', n: 'Staff Laboratorium', r: 'STAFF', a: 1 }];
+    } else {
+      db.users = u;
+    }
+
+    db.items = i || [];
+    db.tx = (t || []).map(x => ({ id: x.id, b: x.b, c: x.c, q: x.q, d: x.d, s: x.s, rd: x.rd, by: x.by }));
+  } catch (err) {
+    console.error('Gagal memuat data:', err);
+  }
+  return db;
 }
-function load(){try{const d=JSON.parse(localStorage.getItem(K));if(d&&d.items)return d}catch(e){}const d=seed();localStorage.setItem(K,JSON.stringify(d));return d}
-let db=load();
-const save=()=>localStorage.setItem(K,JSON.stringify(db));
-const getMe=()=>{const u=localStorage.getItem(SK);return db.users.find(x=>x.u===u&&x.a)||null};
-let me=getMe();
-const borrowed=c=>db.tx.filter(t=>t.c===c&&t.s==='DIPINJAM').reduce((a,t)=>a+t.q,0);
-const avail=i=>i.t-borrowed(i.c);
-const item=c=>db.items.find(i=>i.c===c);
-const isAdmin=()=>me&&me.r==='ADMIN';
-const toast=m=>{const e=document.createElement('div');e.className='toast';e.textContent=m;document.body.append(e);setTimeout(()=>e.remove(),2400)};
+
+const save = () => {}; // Disimpan otomatis via Supabase
+const getMe = () => { const u = localStorage.getItem(SK); return db.users.find(x => x.u === u && x.a) || null; };
+let me = getMe();
+const borrowed = c => db.tx.filter(t => t.c === c && t.s === 'DIPINJAM').reduce((a, t) => a + t.q, 0);
+const avail = i => i.t - borrowed(i);
+const item = c => db.items.find(i => i.c === c);
+const isAdmin = () => me && me.r === 'ADMIN';
+const toast = m => { const e = document.createElement('div'); e.className = 'toast'; e.textContent = m; document.body.append(e); setTimeout(() => e.remove(), 2400); };
 
 // ===== Login =====
 function viewLogin(){
@@ -95,10 +121,14 @@ function viewLogin(){
   <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
   <div class="err" id="le" role="alert"></div><button class="btn full">Masuk</button>
   <div class="demo">Akun demo<br>Admin: <b>admin</b> / <b>admin123</b><br>Staff: <b>staff</b> / <b>staff123</b></div></form></div>`;
-  lf.onsubmit=e=>{e.preventDefault();db=load();const x=db.users.find(v=>v.u===u.value.trim()&&v.p===p.value);
+  lf.onsubmit=async e=>{
+    e.preventDefault();
+    await load();
+    const x=db.users.find(v=>v.u===u.value.trim()&&v.p===p.value);
     if(!x){le.textContent='Username atau password salah.';return}
     if(!x.a){le.textContent='Akun dinonaktifkan. Hubungi Admin.';return}
-    localStorage.setItem(SK,x.u);me=x;location.hash='#dashboard';render()};
+    localStorage.setItem(SK,x.u);me=x;location.hash='#dashboard';render()
+  };
 }
 function logout(){localStorage.removeItem(SK);me=null;location.hash='';render()}
 
@@ -114,7 +144,7 @@ function render(){
   <div class="me"><div>${esc(me.n)}<br><span class="tag ${isAdmin()?'ok':'warn'}">${me.r}</span></div><button onclick="logout()">Keluar</button></div></aside><main id="v"></main></div>`;
   ({dashboard:vDash,items:vItems,borrow:vBorrow,return:vReturn,history:vHist,users:vUsers})[r]();
 }
-window.onhashchange=()=>{db=load();render()};
+window.onhashchange=async()=>{await load();render()};
 
 const tagS=s=>s==='DIPINJAM'?'<span class="tag warn">Dipinjam</span>':'<span class="tag ok">Selesai</span>';
 const txRows=(list,withBy=true)=>list.length?`<div class="tw"><table><thead><tr><th>Tanggal</th><th>Peminjam</th><th>Barang</th><th>Jml</th><th>Status</th><th>Dikembalikan</th>${withBy?'<th>Dicatat oleh</th>':''}</tr></thead><tbody>
@@ -150,21 +180,29 @@ function modal(title,body,onOk){
   document.body.append(d);d.showModal();
   const f=d.querySelector('form'),er=d.querySelector('.err');
   d.querySelector('[value=x]').onclick=()=>d.close();d.onclose=()=>d.remove();
-  f.onsubmit=e=>{e.preventDefault();const r=onOk(Object.fromEntries(new FormData(f)));if(r)er.textContent=r;else d.close()};
+  f.onsubmit=async e=>{e.preventDefault();const r=await onOk(Object.fromEntries(new FormData(f)));if(r)er.textContent=r;else d.close()};
 }
-function itemForm(code){
+async function itemForm(code){
   const i=code?item(code):{c:'',n:'',k:'',t:1},ed=!!code;
   modal(ed?'Edit barang':'Tambah barang',`<label>Kode</label><input name="c" value="${esc(i.c)}" ${ed?'readonly':''} required>
   <label>Nama barang</label><input name="n" value="${esc(i.n)}" required><label>Kategori</label><input name="k" value="${esc(i.k)}" required>
-  <label>Stok total</label><input name="t" type="number" min="0" value="${i.t}" required>`,f=>{
+  <label>Stok total</label><input name="t" type="number" min="0" value="${i.t}" required>`,async f=>{
     const t=parseInt(f.t);if(isNaN(t)||t<0)return'Stok harus angka 0 atau lebih.';
-    if(ed){if(t<borrowed(code))return`Stok tidak boleh kurang dari jumlah yang sedang dipinjam (${borrowed(code)}).`;Object.assign(item(code),{n:f.n.trim(),k:f.k.trim(),t})}
-    else{const c=f.c.trim().toUpperCase();if(item(c))return'Kode barang sudah dipakai.';db.items.push({c,n:f.n.trim(),k:f.k.trim(),t})}
-    save();toast('Barang disimpan');vItems()});
+    if(ed){
+      if(t<borrowed(code))return`Stok tidak boleh kurang dari jumlah yang sedang dipinjam (${borrowed(code)}).`;
+      await _supabase.from('items').update({n:f.n.trim(),k:f.k.trim(),t}).eq('c',code);
+    } else {
+      const c=f.c.trim().toUpperCase();if(item(c))return'Kode barang sudah dipakai.';
+      await _supabase.from('items').insert({c,n:f.n.trim(),k:f.k.trim(),t});
+    }
+    await load();toast('Barang disimpan');vItems()});
 }
-function delItem(c){
+async function delItem(c){
   if(borrowed(c)>0)return alert('Barang masih dipinjam, tidak bisa dihapus.');
-  if(confirm(`Hapus ${item(c).n}?`)){db.items=db.items.filter(i=>i.c!==c);save();toast('Barang dihapus');vItems()}
+  if(confirm(`Hapus ${item(c).n}?`)){
+    await _supabase.from('items').delete().eq('c',c);
+    await load();toast('Barang dihapus');vItems()
+  }
 }
 
 // ===== Peminjaman =====
@@ -177,9 +215,12 @@ function vBorrow(){
   <div><label>Jumlah</label><input name="q" type="number" min="1" value="1" required></div></div>
   <div class="err" id="be" role="alert"></div><button class="btn">Simpan transaksi</button></form></div>
   <div class="panel"><h3>Transaksi terakhir</h3>${txRows([...myTx()].reverse().slice(0,8))}</div>`;
-  bf.onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(bf)),it=item(f.c),n=parseInt(f.q);
+  bf.onsubmit=async e=>{
+    e.preventDefault();const f=Object.fromEntries(new FormData(bf)),it=item(f.c),n=parseInt(f.q);
     if(!it)return be.textContent='Pilih barang.';if(n<1||n>avail(it))return be.textContent=`Jumlah harus 1 sampai ${avail(it)}.`;
-    db.tx.push({id:db.seq++,b:f.b.trim(),c:f.c,q:n,d:f.d,s:'DIPINJAM',rd:null,by:me.u});save();toast('Peminjaman tersimpan');vBorrow()};
+    await _supabase.from('transactions').insert({b:f.b.trim(),c:f.c,q:n,d:f.d,s:'DIPINJAM',rd:null,by:me.u});
+    await load();toast('Peminjaman tersimpan');vBorrow()
+  };
 }
 
 // ===== Pengembalian =====
@@ -188,7 +229,11 @@ function vReturn(){
   v.innerHTML=`<h2>Pengembalian Barang</h2><div class="panel"><h3>Barang yang sedang dipinjam</h3>${l.length?`<div class="tw"><table><thead><tr><th>Tanggal</th><th>Peminjam</th><th>Barang</th><th>Jml</th><th></th></tr></thead><tbody>
   ${l.map(t=>`<tr><td>${esc(t.d)}</td><td>${esc(t.b)}</td><td>${esc(item(t.c)?.n||t.c)}</td><td>${t.q}</td><td><button class="btn sm" onclick="doReturn(${t.id})">Proses pengembalian</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Tidak ada barang yang sedang dipinjam.</div>'}</div>`;
 }
-function doReturn(id){const t=db.tx.find(x=>x.id===id);if(!t||t.s!=='DIPINJAM')return;t.s='SELESAI';t.rd=today();save();toast('Barang dikembalikan, stok diperbarui');vReturn()}
+async function doReturn(id){
+  const t=db.tx.find(x=>x.id===id);if(!t||t.s!=='DIPINJAM')return;
+  await _supabase.from('transactions').update({s:'SELESAI',rd:today()}).eq('id',id);
+  await load();toast('Barang dikembalikan, stok diperbarui');vReturn()
+}
 
 // ===== Riwayat =====
 function vHist(){
@@ -201,17 +246,28 @@ function vUsers(){
   ${db.users.map(x=>`<tr><td class="code">${esc(x.u)}</td><td>${esc(x.n)}</td><td>${x.r}</td><td>${x.a?'<span class="tag ok">Aktif</span>':'<span class="tag bad">Nonaktif</span>'}</td>
   <td><div class="act"><button class="btn ghost sm" onclick="userForm('${esc(x.u)}')">Edit</button>${x.r==='STAFF'?`<button class="btn ghost sm" onclick="toggleUser('${esc(x.u)}')">${x.a?'Nonaktifkan':'Aktifkan'}</button>`:''}</div></td></tr>`).join('')}</tbody></table></div></div>`;
 }
-function toggleUser(u){const x=db.users.find(v=>v.u===u);x.a=x.a?0:1;save();toast(x.a?'Akun diaktifkan':'Akun dinonaktifkan');vUsers()}
-function userForm(u){
+async function toggleUser(u){
+  const x=db.users.find(v=>v.u===u);const newStatus=x.a?0:1;
+  await _supabase.from('users').update({a:newStatus}).eq('u',u);
+  await load();toast(newStatus?'Akun diaktifkan':'Akun dinonaktifkan');vUsers()
+}
+async function userForm(u){
   const x=u?db.users.find(v=>v.u===u):{u:'',n:'',a:1},ed=!!u;
   modal(ed?'Edit pengguna':'Tambah akun Staff',`<label>Username</label><input name="u" value="${esc(x.u)}" ${ed?'readonly':''} required pattern="[A-Za-z0-9_.]+" title="Huruf, angka, titik, underscore">
   <label>Nama lengkap</label><input name="n" value="${esc(x.n)}" required>
-  <label>Password ${ed?'(kosongkan jika tidak diubah)':''}</label><input name="p" type="password" minlength="6" ${ed?'':'required'}>`,f=>{
-    if(ed){x.n=f.n.trim();if(f.p)x.p=f.p}
-    else{const n=f.u.trim().toLowerCase();if(db.users.some(v=>v.u===n))return'Username sudah dipakai.';db.users.push({u:n,p:f.p,n:f.n.trim(),r:'STAFF',a:1})}
-    save();toast('Pengguna disimpan');vUsers()});
+  <label>Password ${ed?'(kosongkan jika tidak diubah)':''}</label><input name="p" type="password" minlength="6" ${ed?'':'required'}`,async f=>{
+    if(ed){
+      const updateData={n:f.n.trim()};if(f.p)updateData.p=f.p;
+      await _supabase.from('users').update(updateData).eq('u',u);
+    }else{
+      const n=f.u.trim().toLowerCase();if(db.users.some(v=>v.u===n))return'Username sudah dipakai.';
+      await _supabase.from('users').insert({u:n,p:f.p,n:f.n.trim(),r:'STAFF',a:1});
+    }
+    await load();toast('Pengguna disimpan');vUsers()});
 }
-render();
+
+// Load data awal, lalu render aplikasi
+load().then(()=>render());
 </script>
 </body>
 </html>
